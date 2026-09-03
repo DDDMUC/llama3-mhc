@@ -1,0 +1,35 @@
+[21:35:49] start: mixer=sinkhorn topology=dynamic n_streams=4 params=9.93M device=cuda resume_iter=0 max_iters=2000 out_dir=/mnt/e/Uni-mHC/llama3-mhc/runs/mhc
+[21:35:57] iter     0: train 4.2360, val 4.2318, lr 9.90e-06, 0k tok/s
+[21:36:41] iter   100: train 1.9781, val 2.0585, lr 1.00e-03, 16k tok/s
+[21:37:18] iter   200: checkpoint saved (447 ms/iter avg)
+[21:37:28] iter   200: train 1.5228, val 1.6989, lr 9.94e-04, 17k tok/s
+[21:38:15] iter   300: train 1.3970, val 1.6054, lr 9.76e-04, 17k tok/s
+[21:38:56] iter   400: checkpoint saved (470 ms/iter avg)
+[21:39:07] iter   400: train 1.3075, val 1.5467, lr 9.46e-04, 16k tok/s
+[21:39:56] iter   500: train 1.2607, val 1.5373, lr 9.05e-04, 17k tok/s
+[21:40:38] iter   600: checkpoint saved (482 ms/iter avg)
+[21:40:47] iter   600: train 1.2110, val 1.5094, lr 8.55e-04, 16k tok/s
+[21:41:38] iter   700: train 1.1637, val 1.5161, lr 7.96e-04, 16k tok/s
+[21:42:18] iter   800: checkpoint saved (487 ms/iter avg)
+[21:42:30] iter   800: train 1.1046, val 1.5328, lr 7.31e-04, 16k tok/s
+[21:43:21] iter   900: train 1.0544, val 1.5526, lr 6.60e-04, 16k tok/s
+[21:44:05] iter  1000: checkpoint saved (496 ms/iter avg)
+[21:44:16] iter  1000: train 0.9974, val 1.5915, lr 5.87e-04, 16k tok/s
+[21:45:08] iter  1100: train 0.9250, val 1.6275, lr 5.13e-04, 16k tok/s
+[21:45:49] iter  1200: checkpoint saved (500 ms/iter avg)
+[21:46:00] iter  1200: train 0.8547, val 1.6863, lr 4.40e-04, 16k tok/s
+[21:46:52] iter  1300: train 0.7805, val 1.7407, lr 3.69e-04, 16k tok/s
+[21:47:33] iter  1400: checkpoint saved (503 ms/iter avg)
+[21:47:44] iter  1400: train 0.6964, val 1.8560, lr 3.04e-04, 16k tok/s
+[21:48:34] iter  1500: train 0.6268, val 1.9351, lr 2.45e-04, 16k tok/s
+[21:49:15] iter  1600: checkpoint saved (504 ms/iter avg)
+[21:49:25] iter  1600: train 0.5604, val 2.0347, lr 1.95e-04, 16k tok/s
+[21:50:17] iter  1700: train 0.5039, val 2.1125, lr 1.54e-04, 16k tok/s
+[21:50:56] iter  1800: checkpoint saved (504 ms/iter avg)
+[21:51:07] iter  1800: train 0.4530, val 2.2653, lr 1.24e-04, 16k tok/s
+[21:51:57] iter  1900: train 0.4089, val 2.3498, lr 1.06e-04, 16k tok/s
+[21:52:48] iter  1999: train 0.3693, val 2.3902, lr 1.00e-04, 16k tok/s
+[21:52:49] iter  2000: checkpoint saved (510 ms/iter avg)
+[21:52:59] iter  2000: train 0.3711, val 2.3821, lr 1.00e-04, 16k tok/s
+[21:53:00] done: reached max_iters=2000, best_val=1.5094, final ckpt saved. total 1031.5s this session
+[21:53:00] mixing report: worst row_err=5.96e-08 over 12 mixers -> mixing_report.json

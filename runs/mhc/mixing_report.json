@@ -1,0 +1,110 @@
+[
+  {
+    "block": 0,
+    "stage": "attn",
+    "topology": "dynamic-probe",
+    "row_err": 0.0,
+    "col_err": 0.0,
+    "min_entry": 0.09625513106584549,
+    "signed": false
+  },
+  {
+    "block": 0,
+    "stage": "mlp",
+    "topology": "dynamic-probe",
+    "row_err": 0.0,
+    "col_err": 0.0,
+    "min_entry": 0.0775187537074089,
+    "signed": false
+  },
+  {
+    "block": 1,
+    "stage": "attn",
+    "topology": "dynamic-probe",
+    "row_err": 5.960464477539063e-08,
+    "col_err": 0.0,
+    "min_entry": 0.0801464095711708,
+    "signed": false
+  },
+  {
+    "block": 1,
+    "stage": "mlp",
+    "topology": "dynamic-probe",
+    "row_err": 0.0,
+    "col_err": 1.1920928955078125e-07,
+    "min_entry": 0.08144823461771011,
+    "signed": false
+  },
+  {
+    "block": 2,
+    "stage": "attn",
+    "topology": "dynamic-probe",
+    "row_err": 5.960464477539063e-08,
+    "col_err": 5.960464477539063e-08,
+    "min_entry": 0.06695929169654846,
+    "signed": false
+  },
+  {
+    "block": 2,
+    "stage": "mlp",
+    "topology": "dynamic-probe",
+    "row_err": 0.0,
+    "col_err": 0.0,
+    "min_entry": 0.0767141804099083,
+    "signed": false
+  },
+  {
+    "block": 3,
+    "stage": "attn",
+    "topology": "dynamic-probe",
+    "row_err": 0.0,
+    "col_err": 0.0,
+    "min_entry": 0.07767724245786667,
+    "signed": false
+  },
+  {
+    "block": 3,
+    "stage": "mlp",
+    "topology": "dynamic-probe",
+    "row_err": 0.0,
+    "col_err": 0.0,
+    "min_entry": 0.07562538236379623,
+    "signed": false
+  },
+  {
+    "block": 4,
+    "stage": "attn",
+    "topology": "dynamic-probe",
+    "row_err": 0.0,
+    "col_err": 1.1920928955078125e-07,
+    "min_entry": 0.07199738174676895,
+    "signed": false
+  },
+  {
+    "block": 4,
+    "stage": "mlp",
+    "topology": "dynamic-probe",
+    "row_err": 0.0,
+    "col_err": 0.0,
+    "min_entry": 0.07770292460918427,
+    "signed": false
+  },
+  {
+    "block": 5,
+    "stage": "attn",
+    "topology": "dynamic-probe",
+    "row_err": 0.0,
+    "col_err": 1.1920928955078125e-07,
+    "min_entry": 0.07626282423734665,
+    "signed": false
+  },
+  {
+    "block": 5,
+    "stage": "mlp",
+    "topology": "dynamic-probe",
+    "row_err": 0.0,
+    "col_err": 0.0,
+    "min_entry": 0.07679121196269989,
+    "signed": false
+  }
+]

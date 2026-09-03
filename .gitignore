@@ -1,0 +1,14 @@
+# Python
+__pycache__/
+*.pyc
+
+# training checkpoints (logs/metrics are tracked; weights are not)
+*.pt
+
+# agent session files
+.zcode/
+
+# prepared data binaries (regenerate with data/shakespeare_char/prepare.py)
+data/*/*.bin
+data/*/input.txt
+data/*/meta.pkl

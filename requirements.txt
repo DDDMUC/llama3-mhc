@@ -1,0 +1,3 @@
+torch
+numpy
+matplotlib  # only for scripts/plot_loss.py
