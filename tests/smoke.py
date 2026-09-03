@@ -142,6 +142,25 @@ def main():
             ls.append(l.item())
         assert ls[-1] < ls[0], "training did not converge"
         print(f"20-step real training          OK ({ls[0]:.3f} -> {ls[-1]:.3f})")
+
+        # 8) bf16 AMP: training must stay finite and converge
+        if dev == "cuda" and torch.cuda.is_bf16_supported():
+            mm_b = LlamaHC(cfg).to(dev)
+            ob = mm_b.configure_optimizers(0.1, 1e-3, (0.9, 0.95), dev)
+            lsb = []
+            for _ in range(20):
+                with torch.amp.autocast("cuda", dtype=torch.bfloat16):
+                    _, lb = mm_b(x, y)
+                ob.zero_grad()
+                lb.backward()
+                torch.nn.utils.clip_grad_norm_(mm_b.parameters(), 1.0)
+                ob.step()
+                lsb.append(lb.item())
+            assert all(torch.isfinite(torch.tensor(v)) for v in lsb), "bf16 loss went non-finite"
+            assert lsb[-1] < lsb[0], "bf16 training did not converge"
+            print(f"bf16 AMP training             OK ({lsb[0]:.3f} -> {lsb[-1]:.3f})")
+        else:
+            print("bf16 AMP training             SKIPPED (no bf16 support)")
     else:
         print("20-step real training          SKIPPED (prepare data first)")
 

@@ -19,6 +19,7 @@ import argparse
 import json
 import math
 import pickle
+from contextlib import nullcontext
 import sys
 import time
 from pathlib import Path
@@ -46,14 +47,15 @@ def get_batch(split, train_data, val_data, block_size, batch_size, device):
 
 
 @torch.no_grad()
-def estimate_loss(model, ctx, eval_iters):
+def estimate_loss(model, ctx, eval_iters, autocast_ctx=nullcontext()):
     out = {}
     model.eval()
     for split in ["train", "val"]:
         losses = torch.zeros(eval_iters)
         for k in range(eval_iters):
             X, Y = get_batch(split, *ctx)
-            logits, loss = model(X, Y)
+            with autocast_ctx:
+                logits, loss = model(X, Y)
             losses[k] = loss.item()
         out[split] = losses.mean().item()
     model.train()
@@ -136,6 +138,9 @@ def main():
     p.add_argument("--eval_iters", type=int, default=50)
     p.add_argument("--ckpt_every", type=int, default=200)
     p.add_argument("--compile", action="store_true")
+    p.add_argument("--dtype", type=str, default="auto",
+                   choices=["auto", "fp32", "bf16", "fp16"],
+                   help="training dtype: auto -> bf16 if CUDA supports it else fp16")
     p.add_argument("--seed", type=int, default=1337)
     g_args = p.parse_args()
     args = g_args
@@ -195,6 +200,17 @@ def main():
         else:
             log("warning: --compile ignored (supported on linux only)")
 
+    # dtype / autocast context (nanoGPT pattern: auto -> bf16 if supported else fp16)
+    device_type = "cuda" if device == "cuda" else "cpu"
+    if args.dtype == "auto":
+        dtype = "bf16" if (torch.cuda.is_available() and torch.cuda.is_bf16_supported()) else ("fp16" if torch.cuda.is_available() else "fp32")
+    else:
+        dtype = args.dtype
+    ptdtype = {"fp32": torch.float32, "bf16": torch.bfloat16, "fp16": torch.float16}[dtype]
+    autocast_ctx = nullcontext() if (device_type == "cpu" or dtype == "fp32") else torch.amp.autocast(device_type=device_type, dtype=ptdtype)
+    scaler = torch.cuda.amp.GradScaler(enabled=(dtype == "fp16"))
+    log(f"dtype={dtype} (autocast={autocast_ctx is not nullcontext()}, GradScaler={scaler.is_enabled()})")
+
     metrics_f = open(out_dir / "metrics.jsonl", "a", encoding="utf-8")
     ctx = (train_data, val_data, args.block_size, args.batch_size, device)
     topology = "none" if args.mixer == "none" else ("dynamic" if args.dynamic_topology else "static")
@@ -223,7 +239,7 @@ def main():
             param_group["lr"] = lr
 
         if iter_num % args.eval_interval == 0 or iter_num == args.max_iters - 1:
-            losses = estimate_loss(model, ctx, args.eval_iters)
+            losses = estimate_loss(model, ctx, args.eval_iters, autocast_ctx)
             tok_s = tokens_seen / max(time.time() - t0, 1e-9)
             log(f"iter {iter_num:5d}: train {losses['train']:.4f}, val {losses['val']:.4f}, "
                 f"lr {lr:.2e}, {tok_s/1e3:.0f}k tok/s")
@@ -241,13 +257,16 @@ def main():
             break
 
         try:
-            logits, loss = model(X, Y)
+            with autocast_ctx:
+                logits, loss = model(X, Y)
             X, Y = get_batch("train", *ctx)
             optimizer.zero_grad(set_to_none=True)
-            loss.backward()
+            scaler.scale(loss).backward()
             if args.grad_clip > 0:
+                scaler.unscale_(optimizer)
                 torch.nn.utils.clip_grad_norm_(model.parameters(), args.grad_clip)
-            optimizer.step()
+            scaler.step(optimizer)
+            scaler.update()
         except KeyboardInterrupt:
             save_ckpt(model, optimizer, iter_num, best_val_loss, out_dir, "ckpt_latest")
             log(f"interrupted at iter {iter_num} -- ckpt_latest.pt saved, rerun same command to resume")
