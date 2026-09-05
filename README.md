@@ -113,6 +113,12 @@ math.
 | final train | 4.3318 @ 200 iters |
 | mixing row_err | 0.00e+00 after training |
 
+**Evaluation tooling** — `eval.py` scores ARC-style multiple-choice questions by
+next-token NLL. On the 200-iter TinyStories base model it gets **0.280 (14/50)**
+on ARC-Easy (50-example subset), which is near random — expected for a
+pretrained base model that has not been SFT'd. This is an eval-tool demo, not a
+capability claim.
+
 Loss curve: `assets/loss_curve.png` (rendered from `runs/mhc/metrics.jsonl`
 by `scripts/plot_loss.py`).
 
@@ -126,6 +132,7 @@ scripts/        plot_loss.py — metrics.jsonl -> loss curve PNG
 train.py        pausable nanoGPT-style trainer (--config support)
 sample.py       generation + --chat REPL
 bench.py        throughput/MFU benchmark
+eval.py         multiple-choice eval (ARC, next-token NLL)
 config/         preset configs (train_shakespeare_char.py, train_tinystories.py)
 assets/         canonical run's loss curve + sample text
 runs/mhc/       canonical run's logs/metrics (weights not included, see below)
