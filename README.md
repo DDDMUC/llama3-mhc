@@ -11,8 +11,9 @@
 
 一个将标准 Llama-3 骨干与
 [arXiv:2512.24880](https://arxiv.org/abs/2512.24880)（DeepSeek-AI）中 mHC 层
-结合起来的**单一架构参考仓库**。它沿袭 nanoGPT / nanowhale 传统——小、自包含、
-可复现，在单张 GPU 上即可训练、基准测试与采样。
+结合起来的**单一架构参考仓库**。它与 nanoGPT / nanochat / nanowhale 同属一类
+**nano 级·单架构·教程式参考仓库**——小而自包含、可复现，在单张 GPU 上即可
+训练、基准测试与采样。
 
 - **Llama-3 骨干** — RMSNorm（fp32 计算）、RoPE（`theta=500000`）、SwiGLU、
   分组查询注意力（GQA）、无偏置、输入/输出嵌入绑定。
@@ -131,8 +132,6 @@ runs/mhc/       canonical 运行的日志/指标（权重不包含，见下）
   （mHC 所基于的方法；经 mHC 论文参考文献核实）。
 - **mHC** — Xie et al. (DeepSeek-AI), *mHC: Manifold-Constrained Hyper-Connections*,
   [arXiv:2512.24880](https://arxiv.org/abs/2512.24880).
-- **nanowhale** — Hugging Face 的 DeepSeek-V4 迷你复刻，同样使用
-  Sinkhorn 归一化的 Hyper-Connections。 [github.com/huggingface/nanowhale](https://github.com/huggingface/nanowhale)。
 
 ## 许可
 
@@ -149,9 +148,10 @@ runs/mhc/       canonical 运行的日志/指标（权重不包含，见下）
 
 A single-architecture reference implementation that combines the standard
 Llama-3 backbone with the mHC layer from
-[arXiv:2512.24880](https://arxiv.org/abs/2512.24880) (DeepSeek-AI). It follows
-the nanoGPT/nanowhale tradition — a small, self-contained, reproducible
-codebase you can train, benchmark, and sample on a single GPU.
+[arXiv:2512.24880](https://arxiv.org/abs/2512.24880) (DeepSeek-AI). It belongs
+to the same class of **nano-scale, single-architecture, tutorial-style
+reference repos** as nanoGPT / nanochat / nanowhale — small, self-contained,
+reproducible, trainable on a single GPU.
 
 - **Llama-3 backbone** — RMSNorm (fp32 cast), RoPE (`theta=500000`), SwiGLU,
   Grouped-Query Attention, no biases, tied input/output embedding.
@@ -281,8 +281,6 @@ runs/mhc/       canonical run's logs/metrics (weights not included, see below)
   (the method mHC builds on; verified via mHC paper's bibliography).
 - **mHC** — Xie et al. (DeepSeek-AI), *mHC: Manifold-Constrained Hyper-Connections*,
   [arXiv:2512.24880](https://arxiv.org/abs/2512.24880).
-- **nanowhale** — Hugging Face's DeepSeek-V4 mini-recreation, which also uses
-  Sinkhorn-normalized Hyper-Connections. [github.com/huggingface/nanowhale](https://github.com/huggingface/nanowhale).
 
 ## License
 
