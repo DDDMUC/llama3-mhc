@@ -11,7 +11,7 @@
 
 一个将标准 Llama-3 骨干与
 [arXiv:2512.24880](https://arxiv.org/abs/2512.24880)（DeepSeek-AI）中 mHC 层
-结合起来的**单一架构参考仓库**。它与 nanoGPT / nanochat / nanowhale 同属一类
+结合起来的**单一架构参考仓库**。它与 nanoGPT / nanochat 同属一类
 **nano 级·单架构·教程式参考仓库**——小而自包含、可复现，在单张 GPU 上即可
 训练、基准测试与采样。
 
@@ -126,6 +126,21 @@ runs/mhc/       canonical 运行的日志/指标（权重不包含，见下）
   `runs/mhc/` 仅保留支撑 README 数字的日志（12K）。
 - 中断后继续：`python train.py --out_dir=runs/mhc` 自动从最新 checkpoint 恢复。
 
+## 参考与来源（本仓库实际参考了什么）
+
+以下是为实现本仓库而**实际**对照/借鉴的来源（不含任何"仅风格相似"的仓库）：
+
+| 我们代码/文档 | 来源 | 性质 |
+|---|---|---|
+| Llama-3 骨干（RMSNorm/RoPE/GQA/SwiGLU） | `karpathy/llama2.c model.py` + HF `transformers modeling_llama.py` | 逐组件 diff 验证 |
+| mHC 公式（Eq.7 + Eq.8-9, 20 迭代, exp clamp, 流复制） | mHC 论文 (arXiv:2512.24880) + `AndreSlavescu/mHC.cu` + `deepseek-ai/TileKernels` | 对照论文公式 + 数值细节 |
+| trainer（pause/resume/eval）与 bench 结构 | `karpathy/nanoGPT train.py` / `bench.py` | 结构借鉴（代码中已标注"Differences from nanoGPT"） |
+| `data/shakespeare_char/prepare.py` | `karpathy/nanoGPT`（Apache-2.0） | vendored 复制 |
+
+**我们未参考/未对比**：`huggingface/nanowhale` 及任何其它"nano"仓库。nanowhale（HF DeepSeek-V4 迷你复刻）的 Hyper-Connections 是 `hc_mult=4` + **Sinkhorn 仅 2 次迭代 + softmax 初始**——**与 mHC 论文（20 次, exp 初始）不同**，且**非本仓库实现依据**。本仓库的 mHC 忠实于论文，与 nanowhale 无关。
+
+---
+
 ## 相关工作
 
 - **HC** — Zhu et al., *Hyper-connections*, [arXiv:2409.19606](https://arxiv.org/abs/2409.19606)
@@ -150,7 +165,7 @@ A single-architecture reference implementation that combines the standard
 Llama-3 backbone with the mHC layer from
 [arXiv:2512.24880](https://arxiv.org/abs/2512.24880) (DeepSeek-AI). It belongs
 to the same class of **nano-scale, single-architecture, tutorial-style
-reference repos** as nanoGPT / nanochat / nanowhale — small, self-contained,
+reference repos** as nanoGPT / nanochat — small, self-contained,
 reproducible, trainable on a single GPU.
 
 - **Llama-3 backbone** — RMSNorm (fp32 cast), RoPE (`theta=500000`), SwiGLU,
@@ -274,6 +289,26 @@ runs/mhc/       canonical run's logs/metrics (weights not included, see below)
   (12K) that back the README numbers.
 - Iterate after interruption: `python train.py --out_dir=runs/mhc` resumes
   automatically from the newest checkpoint.
+
+## References & provenance (what this repo actually drew from)
+
+Definitions below are what this repo **actually** consulted/reused (not any
+"style-similar" repo):
+
+| our code/docs | source | relation |
+|---|---|---|
+| Llama-3 backbone (RMSNorm/RoPE/GQA/SwiGLU) | `karpathy/llama2.c model.py` + HF `transformers modeling_llama.py` | component-diff verified |
+| mHC math (Eq.7 + Eq.8-9, 20 iters, exp clamp, stream replication) | mHC paper (arXiv:2512.24880) + `AndreSlavescu/mHC.cu` + `deepseek-ai/TileKernels` | against paper formulas + numeric details |
+| trainer (pause/resume/eval) + bench structure | `karpathy/nanoGPT train.py` / `bench.py` | structural borrow (annotated "Differences from nanoGPT") |
+| `data/shakespeare_char/prepare.py` | `karpathy/nanoGPT` (Apache-2.0) | vendored |
+
+**We did NOT consult/compare** `huggingface/nanowhale` or any other "nano" repo.
+nanowhale (HF's DeepSeek-V4 mini-recreation) uses Hyper-Connections with
+`hc_mult=4` + **only 2 Sinkhorn iterations + softmax init** — **not mHC
+(20 iters, exp init)** and not a basis for this repo's implementation. Our mHC
+is faithful to the paper and unrelated to nanowhale.
+
+---
 
 ## Related work
 
