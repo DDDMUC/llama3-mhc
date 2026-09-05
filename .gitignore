@@ -8,7 +8,9 @@ __pycache__/
 # agent session files
 .zcode/
 
-# prepared data binaries (regenerate with data/shakespeare_char/prepare.py)
+# prepared data binaries (regenerate with data/<name>/prepare.py)
 data/*/*.bin
 data/*/input.txt
 data/*/meta.pkl
+data/*/*.parquet
+data/eval/*.json

@@ -1,24 +1,35 @@
 """prepare.py -- build a TinyStories token dataset for llama3-mhc.
 
-Downloads/reads the TinyStories parquet (HF roneneldan/TinyStories), takes the
-first `--max_lines` stories, encodes them with a tiktoken BPE (cl100k_base by
-default), and writes train.bin / val.bin (uint16) + meta.pkl (vocab_size +
-tokenizer info) next to this script.
+Reads the TinyStories parquet (HF roneneldan/TinyStories, sub-shard
+train-00000), takes the first `--max_lines` stories, encodes them with a
+tiktoken BPE (cl100k_base by default), and writes train.bin / val.bin
+(uint32; tiktoken ids exceed uint16) + meta.pkl next to this script.
 
-Usage:
-  # needs pyarrow + tiktoken on the machine that has network access
-  python prepare.py --parquet path/to/train-00000-of-00004-*.parquet --max_lines 20000
+The data itself is NOT in git — only this generator code is. A fresh clone
+can reproduce byte-identical data by running:
+
+    python data/tinystories/prepare.py            # auto-downloads parquet
+    # or:  python data/tinystories/prepare.py --parquet /path/to/local.parquet
+
+The fixed default source URL + --max_lines=20000 + cl100k_base gives the
+canonical dataset: 20,000 stories / 4,253,128 tokens (verify after prep).
 """
 import argparse
 import pickle
 from pathlib import Path
+from urllib.request import urlretrieve
 
 import numpy as np
 
+# fixed source shard (HF TinyStories train-00000-of-00004 parquet)
+DEFAULT_PARQUET_URL = (
+    "https://huggingface.co/datasets/roneneldan/TinyStories/resolve/main/"
+    "data/train-00000-of-00004-2d5a1467fff1081b.parquet"
+)
+
 p = argparse.ArgumentParser()
-p.add_argument("--parquet", type=str,
-               default=None,
-               help="path to a TinyStories train parquet (or a local .txt file)")
+p.add_argument("--parquet", type=str, default="__auto__",
+               help="path to a TinyStories train parquet; default: auto-download DEFAULT_PARQUET_URL")
 p.add_argument("--txt", type=str, default=None,
                help="path to a raw .txt file (alternative to --parquet; split at blank lines)")
 p.add_argument("--max_lines", type=int, default=20000,
@@ -34,12 +45,19 @@ out_dir = Path(args.out) if args.out else here
 if args.txt:
     stories = Path(args.txt).read_text(encoding="utf-8").split("\n\n")
     stories = [s.strip() for s in stories if s.strip()]
-elif args.parquet:
+elif args.parquet and args.parquet != "__auto__":
     import pyarrow.parquet as pq
     t = pq.read_table(args.parquet)
     stories = [s.as_py() for s in t.column("text")]
 else:
-    raise SystemExit("provide --parquet or --txt")
+    # auto-download the fixed source shard
+    import pyarrow.parquet as pq
+    cache = here / "tiny_stories_train0.parquet"
+    if not cache.exists():
+        print(f"downloading {DEFAULT_PARQUET_URL} ...")
+        urlretrieve(DEFAULT_PARQUET_URL, cache)
+    t = pq.read_table(cache)
+    stories = [s.as_py() for s in t.column("text")]
 
 stories = stories[: args.max_lines]
 text = "\n\n".join(stories)
