@@ -6,7 +6,7 @@ A single-architecture reference implementation that combines the standard
 Llama-3 backbone with the mHC layer from
 [arXiv:2512.24880](https://arxiv.org/abs/2512.24880) (DeepSeek-AI). It follows
 the nanoGPT/nanowhale tradition — a small, self-contained, reproducible
-codebase you can train and sample on a single GPU.
+codebase you can train, benchmark, and sample on a single GPU.
 
 - **Llama-3 backbone** — RMSNorm (fp32 cast), RoPE (`theta=500000`), SwiGLU,
   Grouped-Query Attention, no biases, tied input/output embedding.
@@ -15,6 +15,11 @@ codebase you can train and sample on a single GPU.
   projection onto doubly stochastic mixing matrices (Eq.8-9, 20 iterations).
 - **Pausable trainer** — checkpoints every `--ckpt_every` steps, auto-resumes
   from the newest checkpoint, writes logs/metrics to `runs/<name>/`.
+- **Mixed precision** — `--dtype {auto,fp32,bf16,fp16}` (auto = bf16 on
+  supported CUDA), GradScaler for fp16, optional `--compile`.
+- **Real tokenizer data** — `data/tinystories/`: tiktoken (cl100k_base) BPE on
+  TinyStories (vocab 100277); `train.py` auto-selects uint16/uint32 by
+  `meta['dtype']`.
 
 The mHC layer is included because it's the method from the paper; the
 Cayley/Givens/orthostochastic mixers (the wider Uni-mHC operator family) live
@@ -30,10 +35,21 @@ python data/shakespeare_char/prepare.py
 
 # 2) train the default mHC model (~17 min on an RTX 4060 Laptop GPU, 2000 iters)
 python train.py --out_dir=runs/mhc
+# or use a preset:  python train.py --config config/train_shakespeare_char.py
 
 # 3) sample / chat
 python sample.py --ckpt runs/mhc/ckpt_final.pt --max_new_tokens=500 --temperature=0.8 --top_k=40
 python sample.py --ckpt runs/mhc/ckpt_final.pt --chat   # interactive REPL
+
+# 4) benchmark (tok/s, MFU)
+python bench.py --dataset data/shakespeare_char --dtype bf16
+```
+
+Quick setup with TinyStories + tiktoken (`config/train_tinystories.py`):
+
+```bash
+python data/tinystories/prepare.py --parquet path/to/tiny_stories.parquet --max_lines 20000
+python train.py --config config/train_tinystories.py
 ```
 
 The default `--mixer=sinkhorn` + `--dynamic_topology=True` is exactly the mHC
@@ -89,6 +105,14 @@ math.
 | final val | 2.3821 @ 2000 iters (overfitting past ~600, expected on 1M-char data) |
 | wall time | ~17 min (RTX 4060 Laptop, ~16k tok/s) |
 
+| TinyStories demo (6L/384d, tiktoken, bf16) | value |
+|---|---|
+| data | 20,000 stories → 4.25M tokens (cl100k_base, vocab 100277) |
+| params | 48.41M |
+| best val | 4.229 @ iter 200 (demo, ~30 min) |
+| final train | 4.3318 @ 200 iters |
+| mixing row_err | 0.00e+00 after training |
+
 Loss curve: `assets/loss_curve.png` (rendered from `runs/mhc/metrics.jsonl`
 by `scripts/plot_loss.py`).
 
@@ -99,8 +123,10 @@ llama3_mhc/     model.py (backbone + mHC blocks), mixers.py (Sinkhorn math)
 data/           shakespeare_char dataset (prepare.py + .bin + meta.pkl)
 tests/          smoke.py — 7-check suite
 scripts/        plot_loss.py — metrics.jsonl -> loss curve PNG
-train.py        pausable nanoGPT-style trainer
+train.py        pausable nanoGPT-style trainer (--config support)
 sample.py       generation + --chat REPL
+bench.py        throughput/MFU benchmark
+config/         preset configs (train_shakespeare_char.py, train_tinystories.py)
 assets/         canonical run's loss curve + sample text
 runs/mhc/       canonical run's logs/metrics (weights not included, see below)
 ```

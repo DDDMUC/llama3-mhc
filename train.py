@@ -95,6 +95,8 @@ ctx_device_type = "cpu"
 def main():
     global g_args, ctx_device_type
     p = argparse.ArgumentParser()
+    p.add_argument("--config", type=Path, default=None,
+                   help="path to a Python config that sets defaults (CLI args override)")
     p.add_argument("--out_dir", type=Path,
                    default=Path(__file__).resolve().parent / "runs" / "mhc")
     p.add_argument("--init_from", default="resume", choices=["scratch", "resume"])
@@ -144,6 +146,23 @@ def main():
     p.add_argument("--seed", type=int, default=1337)
     g_args = p.parse_args()
     args = g_args
+
+    # --config: run a Python file that sets defaults; CLI args (passed after
+    # --config) override. Keys must be valid argparse dests; unknown keys error.
+    if args.config is not None:
+        cfg_ns = {}
+        exec(compile(open(args.config).read(), str(args.config), "exec"), {"__name__": "__config__"}, cfg_ns)
+        for key, val in cfg_ns.items():
+            if key.startswith("_"):
+                continue
+            if not hasattr(args, key):
+                raise SystemExit(f"config key '{key}' is not a train.py arg")
+            # only apply if CLI didn't explicitly set it (argparse defaults are already in)
+            # We cannot distinguish "CLI explicitly set" from "default" here, so we
+            # let CLI win when the value differs from the argparse default.
+            if getattr(args, key) == p.get_default(key):
+                setattr(args, key, val)
+    g_args = args
 
     out_dir = args.out_dir
     out_dir.mkdir(parents=True, exist_ok=True)
