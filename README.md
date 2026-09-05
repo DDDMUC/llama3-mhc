@@ -1,3 +1,148 @@
+<!-- llama3-mhc README (bilingual: Chinese first, English below) -->
+
+[](#zh) | [**English →**](#en)
+
+---
+
+<a id="zh"></a>
+# llama3-mhc
+
+**Llama-3 + mHC（流形约束超连接）—— nano 级从零参考实现。**
+
+一个将标准 Llama-3 骨干与
+[arXiv:2512.24880](https://arxiv.org/abs/2512.24880)（DeepSeek-AI）中 mHC 层
+结合起来的**单一架构参考仓库**。它沿袭 nanoGPT / nanowhale 传统——小、自包含、
+可复现，在单张 GPU 上即可训练、基准测试与采样。
+
+- **Llama-3 骨干** — RMSNorm（fp32 计算）、RoPE（`theta=500000`）、SwiGLU、
+  分组查询注意力（GQA）、无偏置、输入/输出嵌入绑定。
+- **mHC 层** — 将残差流扩展为 `n` 条并行流（默认 `n=4`），带逐 token 动态
+  注记（mHC Eq.7）与 Sinkhorn-Knopp 双随机矩阵投影（Eq.8-9，20 次迭代）。
+- **可暂停训练器** — 每 `--ckpt_every` 步存档，自动从最新 checkpoint 恢复，
+  日志/指标写入 `runs/<name>/`。
+- **混合精度** — `--dtype {auto,fp32,bf16,fp16}`（auto = CUDA 支持时 bf16），
+  fp16 用 GradScaler，可选用 `--compile`。
+- **真实 tokenizer 数据** — `data/tinystories/`：TinyStories 用 tiktoken
+  （cl100k_base）BPE 编码（词表 100277）；`train.py` 按 `meta['dtype']`
+  自动选择 uint16/uint32。
+- **基准与评估** — `bench.py`（tok/s、MFU）与 `eval.py`（多项选择 ARC 评估）。
+
+---
+
+## 快速开始（shakespeare_char）
+
+```bash
+# 1) 准备数据（一次性；若缺失会自动下载 input.txt）
+python data/shakespeare_char/prepare.py
+
+# 2) 训练默认 mHC 模型（RTX 4060 Laptop 约 17 分钟，2000 步）
+python train.py --out_dir=runs/mhc
+# 或用预设：  python train.py --config config/train_shakespeare_char.py
+
+# 3) 采样 / 聊天
+python sample.py --ckpt runs/mhc/ckpt_final.pt --max_new_tokens=500 --temperature=0.8 --top_k=40
+python sample.py --ckpt runs/mhc/ckpt_final.pt --chat   # 交互式 REPL
+
+# 4) 基准测试（tok/s, MFU）
+python bench.py --dataset data/shakespeare_char --dtype bf16
+```
+
+用 TinyStories + tiktoken 快速上手（`config/train_tinystories.py`）：
+
+```bash
+python data/tinystories/prepare.py --parquet path/to/tiny_stories.parquet --max_lines 20000
+python train.py --config config/train_tinystories.py
+```
+
+默认 `--mixer=sinkhorn` + `--dynamic_topology=True` 正是论文中的 mHC 方法。
+`--mixer=none` 给出裸单流 Llama-3 基线；`--no_dynamic_topology` 切换到静态
+读写向量。
+
+---
+
+## 架构
+
+**骨干**（标准 Llama-3，逐组件对照 HF `transformers` Llama 与
+`karpathy/llama2.c` 参考实现）：
+
+- RMSNorm（fp32 计算，`eps=1e-5`），pre-norm。
+- RoPE，`theta=500000`，HF `rotate_half` 约定（与 Meta 复数配对公式数学等价）。
+- SwiGLU MLP（`d_ffn = round_to_multiple(8*d/3, 64)`）。
+- GQA（`n_kv_heads<=n_head`，默认 6L 配置下为 2）。
+- 输入/输出嵌入绑定（`lm_head.weight is wte.weight`）。
+
+**mHC 层**（"mHC" 之所在）：每层的残差流被替换为 `n` 条并行流。对每个阶段
+（注意力/FFN），一个融合投影从展平流的 RMSNorm 产生逐 token 的读/写/注记
+（Eq.7），混合矩阵经 Sinkhorn-Knopp 投影到双随机矩阵（Eq.8-9，20 次迭代，
+无 tanh——Eq.5 的 tanh 是 HC 预备式，非 mHC）。
+
+关键性质：每个 token 的混合是凸组合（全部元素 ≥0，行和=1），从而恢复恒等
+映射，前向/反向信号增益保持有界。完整数学见 [ARCHITECTURE.md](ARCHITECTURE.md)。
+
+## 验证
+
+- **骨干** — 逐组件对照 HF Llama 与 llama2.c；RoPE 已验证范数保持与相对
+  位移不变性。
+- **mHC 混合器** — 已验证双随机性（行/列误差 ≤1e-6），与论文迭代顺序数值
+  等价（6e-8）。
+- **训练** — `tests/smoke.py` 跑 8 项检查（RoPE 数学、绑定+梯度、双随机性、
+  动态拓扑、none 路径、优化器分组+generate、20 步真实数据收敛、bf16 AMP）。
+  `ALL SMOKE TESTS PASSED`（CUDA）。
+- **实测** — 2000 步 canonical 运行后，全部 12 个训练后混合矩阵仍满足双随机
+  性（最差行/列和误差 `1.19e-07`，全元素非负）。
+
+| 配置 | 值 |
+|---|---|
+| shakespeare_char（6L/384d） | 9.93M 参数，2000 步，best val **1.5094 @ iter 600**，~17 分钟 |
+| TinyStories demo（6L/384d, tiktoken, bf16） | 48.41M 参数，200 iters，best val **4.229**，~30 分钟 |
+
+**评估工具** — `eval.py` 以 next-token NLL 对 ARC 式多项选择题评分。200-iter
+TinyStories 基础模型在 ARC-Easy（50 例子集）上得 **0.280 (14/50)**，接近
+随机——符合未 SFT 的基础模型的预期。**这是评估工具可用性演示，不是能力
+声明。**
+
+Loss 曲线：`assets/loss_curve.png`（由 `scripts/plot_loss.py` 从
+`runs/mhc/metrics.jsonl` 生成）。
+
+## 仓库结构
+
+```
+llama3_mhc/     model.py（骨干 + mHC 块）, mixers.py（Sinkhorn 数学）
+data/           shakespeare_char/ 与 tinystories/（tiktoken）数据集 + eval/
+tests/          smoke.py — 8 项检查
+scripts/        plot_loss.py — metrics.jsonl -> loss 曲线 PNG
+train.py        可暂停训练器（支持 --config）
+sample.py       生成 + --chat REPL
+bench.py        吞吐量/MFU 基准
+eval.py         多项选择评估（ARC, next-token NLL）
+config/         预设（train_shakespeare_char.py, train_tinystories.py）
+assets/         canonical 运行的 loss 曲线 + 采样文本
+runs/mhc/       canonical 运行的日志/指标（权重不包含，见下）
+```
+
+- 权重：checkpoint 被 git-ignore（`*.pt`）；canonical 运行的 checkpoint
+  （119MB × 2）已归档到仓库外 `E:\Uni-mHC\runs_archive_llama3mhc\`。
+  `runs/mhc/` 仅保留支撑 README 数字的日志（12K）。
+- 中断后继续：`python train.py --out_dir=runs/mhc` 自动从最新 checkpoint 恢复。
+
+## 相关工作
+
+- **HC** — Zhu et al., *Hyper-connections*, [arXiv:2409.19606](https://arxiv.org/abs/2409.19606)
+  （mHC 所基于的方法；经 mHC 论文参考文献核实）。
+- **mHC** — Xie et al. (DeepSeek-AI), *mHC: Manifold-Constrained Hyper-Connections*,
+  [arXiv:2512.24880](https://arxiv.org/abs/2512.24880).
+- **nanowhale** — Hugging Face 的 DeepSeek-V4 迷你复刻，同样使用
+  Sinkhorn 归一化的 Hyper-Connections。 [github.com/huggingface/nanowhale](https://github.com/huggingface/nanowhale)。
+
+## 许可
+
+代码 MIT。`data/shakespeare_char/prepare.py` 取自
+[karpathy/nanoGPT](https://github.com/karpathy/nanoGPT)（Apache-2.0）。HF
+`transformers` 参考用于对照（仅 diff，不随发布；Apache-2.0）。
+
+---
+
+<a id="en"></a>
 # llama3-mhc
 
 **Llama-3 + mHC (Manifold-Constrained Hyper-Connections) at nano scale, from scratch.**
@@ -20,10 +165,7 @@ codebase you can train, benchmark, and sample on a single GPU.
 - **Real tokenizer data** — `data/tinystories/`: tiktoken (cl100k_base) BPE on
   TinyStories (vocab 100277); `train.py` auto-selects uint16/uint32 by
   `meta['dtype']`.
-
-The mHC layer is included because it's the method from the paper; the
-Cayley/Givens/orthostochastic mixers (the wider Uni-mHC operator family) live
-in the [parent Uni-mHC project](https://github.com/DDDMUC/Uni-mHC).
+- **Benchmark & eval** — `bench.py` (tok/s, MFU) and `eval.py` (multiple-choice ARC).
 
 ---
 
@@ -88,36 +230,24 @@ math.
   for norm preservation and relative-position shift invariance.
 - **mHC mixer** — verified for double stochasticity (row/col error <=1e-6),
   and numeric equivalence to the paper's iteration order (6e-8).
-- **Training** — `tests/smoke.py` runs 7 checks (RoPE math, tying+grads,
+- **Training** — `tests/smoke.py` runs 8 checks (RoPE math, tying+grads,
   double stochasticity, dynamic topology, none path, optimizer grouping +
-  generate, 20-step real-data convergence). `ALL SMOKE TESTS PASSED` on CUDA.
+  generate, 20-step real-data convergence, bf16 AMP). `ALL SMOKE TESTS PASSED`
+  on CUDA.
 - **Live evidence** — after the 2000-iter canonical run, all 12 trained mixing
   matrices still satisfy double stochasticity (worst row/col sum error
-  `1.19e-07`, all entries nonnegative) and the loss curve is monotonic
-  (val `4.23 → 1.5094 @ iter 600`).
+  `1.19e-07`, all entries nonnegative).
 
-| metric | value |
+| config | value |
 |---|---|
-| config | Llama-3 6L/384d, GQA 2 KV heads, n=4 streams, dynamic mHC |
-| params | 9.93M |
-| best val | 1.5094 @ iter 600 |
-| final train | 0.3711 @ 2000 iters |
-| final val | 2.3821 @ 2000 iters (overfitting past ~600, expected on 1M-char data) |
-| wall time | ~17 min (RTX 4060 Laptop, ~16k tok/s) |
-
-| TinyStories demo (6L/384d, tiktoken, bf16) | value |
-|---|---|
-| data | 20,000 stories → 4.25M tokens (cl100k_base, vocab 100277) |
-| params | 48.41M |
-| best val | 4.229 @ iter 200 (demo, ~30 min) |
-| final train | 4.3318 @ 200 iters |
-| mixing row_err | 0.00e+00 after training |
+| shakespeare_char (6L/384d) | 9.93M params, 2000 iters, best val **1.5094 @ iter 600**, ~17 min |
+| TinyStories demo (6L/384d, tiktoken, bf16) | 48.41M params, 200 iters, best val **4.229**, ~30 min |
 
 **Evaluation tooling** — `eval.py` scores ARC-style multiple-choice questions by
 next-token NLL. On the 200-iter TinyStories base model it gets **0.280 (14/50)**
-on ARC-Easy (50-example subset), which is near random — expected for a
-pretrained base model that has not been SFT'd. This is an eval-tool demo, not a
-capability claim.
+on ARC-Easy (50-example subset), near random — expected for a pretrained base
+model that has not been SFT'd. This is an eval-tool demo, not a capability
+claim.
 
 Loss curve: `assets/loss_curve.png` (rendered from `runs/mhc/metrics.jsonl`
 by `scripts/plot_loss.py`).
@@ -126,8 +256,8 @@ by `scripts/plot_loss.py`).
 
 ```
 llama3_mhc/     model.py (backbone + mHC blocks), mixers.py (Sinkhorn math)
-data/           shakespeare_char dataset (prepare.py + .bin + meta.pkl)
-tests/          smoke.py — 7-check suite
+data/           shakespeare_char/ and tinystories/ (tiktoken) datasets + eval/
+tests/          smoke.py — 8-check suite
 scripts/        plot_loss.py — metrics.jsonl -> loss curve PNG
 train.py        pausable nanoGPT-style trainer (--config support)
 sample.py       generation + --chat REPL
@@ -148,7 +278,7 @@ runs/mhc/       canonical run's logs/metrics (weights not included, see below)
 ## Related work
 
 - **HC** — Zhu et al., *Hyper-connections*, [arXiv:2409.19606](https://arxiv.org/abs/2409.19606)
-  (the method mHC builds on; verified via mHC paper's bibliography, Aug 2026).
+  (the method mHC builds on; verified via mHC paper's bibliography).
 - **mHC** — Xie et al. (DeepSeek-AI), *mHC: Manifold-Constrained Hyper-Connections*,
   [arXiv:2512.24880](https://arxiv.org/abs/2512.24880).
 - **nanowhale** — Hugging Face's DeepSeek-V4 mini-recreation, which also uses
