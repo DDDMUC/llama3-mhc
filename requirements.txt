@@ -1,3 +1,4 @@
 torch
 numpy
 matplotlib  # only for scripts/plot_loss.py
+tiktoken    # for tiktoken-tokenized datasets (data/tinystories)

@@ -163,11 +163,12 @@ def main():
     torch.backends.cudnn.allow_tf32 = True
 
     data_dir = Path(__file__).resolve().parent / args.dataset
-    train_data = np.memmap(data_dir / "train.bin", dtype=np.uint16, mode="r")
-    val_data = np.memmap(data_dir / "val.bin", dtype=np.uint16, mode="r")
     with open(data_dir / "meta.pkl", "rb") as f:
         meta = pickle.load(f)
     vocab_size = meta["vocab_size"]
+    data_dtype = np.uint32 if meta.get("dtype", "uint16") == "uint32" else np.uint16
+    train_data = np.memmap(data_dir / "train.bin", dtype=data_dtype, mode="r")
+    val_data = np.memmap(data_dir / "val.bin", dtype=data_dtype, mode="r")
 
     model_args = dict(n_layer=args.n_layer, n_head=args.n_head, n_embd=args.n_embd,
                       block_size=args.block_size, vocab_size=vocab_size,
