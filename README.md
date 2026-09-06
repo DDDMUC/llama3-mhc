@@ -159,16 +159,19 @@ MIT）：复合信号增益 vs 深度 —— baseline（恒等）1.0、HC（无�
 
 ```
 llama3_mhc/     model.py（骨干 + mHC 块）, mixers.py（Sinkhorn 数学）
-data/           shakespeare_char/ 与 tinystories/（tiktoken）数据集 + eval/
-tests/          smoke.py — 8 项检查
-scripts/        plot_loss.py — metrics.jsonl -> loss 曲线 PNG
-train.py        可暂停训练器（支持 --config）
-sample.py       生成 + --chat REPL
+data/           shakespeare_char/ + tinystories/（tiktoken）+ enwik8/（字节级）
+tests/          smoke.py — 9 项检查；check_kvcache.py — KV 正确性门禁
+scripts/        plot_loss.py、plot_mhc_gain.py（mHC 稳定性论证）
+notebooks/      mhc_from_zero.ipynb — 教学 notebook（CPU 可跑）
+train.py        可暂停训练器（--config, --dtype）
+sample.py       生成 + --chat REPL + --kvcache
 bench.py        吞吐量/MFU 基准
-eval.py         多项选择评估（ARC, next-token NLL）
+eval.py         评估（ARC/MMLU 多选 + GSM8K 数学）
 config/         预设（train_shakespeare_char.py, train_tinystories.py）
-assets/         canonical 运行的 loss 曲线 + 采样文本
+assets/         loss 曲线、mHC 增益图、采样文本、chat 演示
 runs/mhc/       canonical 运行的日志/指标（权重不包含，见下）
+.github/        CI（CPU smoke + KV 门禁）
+pyproject.toml  可 pip install -e .
 ```
 
 - 权重：checkpoint 被 git-ignore（`*.pt`）；canonical 运行的 checkpoint
@@ -378,16 +381,19 @@ stays ~1.0. Output: `assets/mhc_gain.png`.
 
 ```
 llama3_mhc/     model.py (backbone + mHC blocks), mixers.py (Sinkhorn math)
-data/           shakespeare_char/ and tinystories/ (tiktoken) datasets + eval/
-tests/          smoke.py — 8-check suite
-scripts/        plot_loss.py — metrics.jsonl -> loss curve PNG
-train.py        pausable nanoGPT-style trainer (--config support)
-sample.py       generation + --chat REPL
+data/           shakespeare_char/ + tinystories/ (tiktoken) + enwik8/ (byte-level)
+tests/          smoke.py — 9-check suite; check_kvcache.py — KV correctness gate
+scripts/        plot_loss.py, plot_mhc_gain.py (mHC stability argument)
+notebooks/      mhc_from_zero.ipynb — teaching notebook (CPU-friendly)
+train.py        pausable trainer (--config, --dtype)
+sample.py       generation + --chat REPL + --kvcache
 bench.py        throughput/MFU benchmark
-eval.py         multiple-choice eval (ARC, next-token NLL)
+eval.py         eval (ARC/MMLU multi-choice + GSM8K math)
 config/         preset configs (train_shakespeare_char.py, train_tinystories.py)
-assets/         canonical run's loss curve + sample text
+assets/         loss curve, mHC gain plot, sample text, chat demo
 runs/mhc/       canonical run's logs/metrics (weights not included, see below)
+.github/        CI (CPU smoke + KV gate)
+pyproject.toml  pip install -e .
 ```
 
 - Weights: checkpoints are git-ignored (`*.pt`); the canonical run's
