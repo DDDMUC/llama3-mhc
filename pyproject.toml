@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "llama3-mhc"
+version = "0.1.0"
+description = "Llama-3 backbone + mHC (Manifold-Constrained Hyper-Connections) at nano scale, from scratch"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = [
+    "torch",
+    "numpy",
+    "matplotlib",
+    "tiktoken",
+]
+
+[project.scripts]
+# root-level scripts (train.py/sample.py/bench.py/eval.py) stay runnable as
+# `python train.py` from the repo root (they resolve data/runs relative to
+# __file__); no console entry points are registered to avoid breaking that.
+
+[tool.setuptools]
+packages = ["llama3_mhc"]

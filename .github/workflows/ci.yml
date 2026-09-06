@@ -1,0 +1,26 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install deps
+        run: |
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install numpy tiktoken
+      - name: Prepare shakespeare data (gitignored bins are regenerated)
+        run: |
+          python data/shakespeare_char/prepare.py
+      - name: Run smoke suite (CPU; bf16 AMP test auto-skips without CUDA)
+        run: python tests/smoke.py
+      - name: Run KV-cache correctness gate
+        run: python tests/check_kvcache.py --device cpu
