@@ -349,3 +349,137 @@ class LlamaHC(nn.Module):
             probs = F.softmax(logits, dim=-1)
             idx = torch.cat((idx, torch.multinomial(probs, num_samples=1)), dim=1)
         return idx
+
+    @torch.no_grad()
+    def generate_kvcache(self, idx, max_new_tokens, temperature=1.0, top_k=None):
+        """Autoregressive generation with KV cache (stream-level).
+
+        Correctness contract: identical tokens to `generate()` (verified in smoke).
+        Prefill: run a full forward over the prompt, caching each layer's K/V
+        (K = w_k(v_t), V = w_v(v_t), where v_t = the layer's aggregate read stream).
+        Decode: for each new token, recompute only that token's annotations/read
+        stream per layer, attend over the cached prefix (causal), write back,
+        cache the new K/V, and take logits.
+        """
+        B = idx.size(0)
+        hs = self.config.n_embd // self.config.n_head
+        nkv = self.config.n_kv_heads
+        n_layer = self.config.n_layer
+        max_len = self.config.block_size
+        device = idx.device
+        cache = {
+            "k": torch.zeros(n_layer, B, nkv, max_len, hs, device=device),
+            "v": torch.zeros(n_layer, B, nkv, max_len, hs, device=device),
+            "seq_len": 0,
+        }
+        # Prefill: run full forward over prompt, capture per-layer K/V
+        tok = self.transformer.wte(idx)
+        streams = tok.unsqueeze(2).expand(-1, -1, self.config.n_streams, self.config.n_embd).contiguous()
+        cos, sin = self.rope_cos, self.rope_sin
+        for layer_idx, block in enumerate(self.transformer.h):
+            # process full prompt for this layer, capture K/V (attn stage)
+            streams = self._block_forward_capture(block, streams, cos, sin, cache, layer_idx)
+        x = torch.einsum("k,btkd->btd", self.read_out, streams)
+        x = self.transformer.ln_f(x)
+        logits = self.lm_head(x[:, [-1], :])[:, -1, :] / max(temperature, 1e-8)
+        del x, tok, streams
+        out = idx
+        for _ in range(max_new_tokens):
+            # sample the next token from the current logits
+            lgt = logits
+            if top_k is not None:
+                v, _ = torch.topk(lgt, min(top_k, lgt.size(-1)))
+                lgt[lgt < v[:, [-1]]] = -float("Inf")
+            probs = F.softmax(lgt, dim=-1)
+            nxt = torch.multinomial(probs, num_samples=1)
+            out = torch.cat((out, nxt), dim=1)
+            # decode the newly sampled token (cache its K/V at pos seq_len,
+            # predict the next one)
+            last = nxt
+            tok = self.transformer.wte(last)
+            streams = tok.unsqueeze(2).expand(-1, -1, self.config.n_streams, self.config.n_embd).contiguous()
+            for layer_idx, block in enumerate(self.transformer.h):
+                streams = self._block_forward_decode(block, streams, cos, sin, cache, layer_idx)
+            self._advance_seq(cache)  # one token decoded: advance position once
+            x = torch.einsum("k,btkd->btd", self.read_out, streams)
+            x = self.transformer.ln_f(x)
+            logits = self.lm_head(x[:, [-1], :])[:, -1, :] / max(temperature, 1e-8)
+        return out
+
+    def _block_forward_capture(self, block, streams, cos, sin, cache, layer_idx):
+        """Full-sequence block forward that records K/V for the cache."""
+        # dynamic stage (paper path): attn then mlp
+        # attn stage: capture K/V
+        h_pre, h_post, raw = block._dyn_raw(streams, "attn")
+        v = torch.einsum("btk,btkd->btd", h_pre, streams)
+        f = block.attn(block.norm_attn(v), cos, sin)
+        W = _batched_sinkhorn_exp(raw)
+        mixed = torch.einsum("btjk,btkd->btjd", W, streams)
+        streams = mixed + f.unsqueeze(2) * h_post.unsqueeze(-1)
+        # (B, T, nkv*hs) -> capture ROTATED K/V for cache (matches full forward:
+        # attention sees norm_attn(v), so K/V are wk/wv(norm(v)))
+        B, T, _ = v.shape
+        nkv, hs = block.attn.nkv, block.attn.hs
+        vn = block.norm_attn(v)
+        kk = block.attn.wk(vn).view(B, T, nkv, hs)  # (B,T,nkv,hs)
+        vv = block.attn.wv(vn).view(B, T, nkv, hs)
+        ## rotate k with positional cos/sin for positions 0..T-1
+        kk_r = apply_rope(kk.transpose(1, 2), cos, sin).transpose(1, 2)  # (B,T,nkv,hs) rotated
+        cache["k"][layer_idx, :, :, :T] = kk_r.transpose(1, 2)       # (B,nkv,T,hs) rotated
+        cache["v"][layer_idx, :, :, :T] = vv.transpose(1, 2)         # v not rotated
+        # mlp stage
+        h_pre, h_post, raw = block._dyn_raw(streams, "mlp")
+        v = torch.einsum("btk,btkd->btd", h_pre, streams)
+        f = block.mlp(block.norm_mlp(v))
+        W = _batched_sinkhorn_exp(raw)
+        mixed = torch.einsum("btjk,btkd->btjd", W, streams)
+        streams = mixed + f.unsqueeze(2) * h_post.unsqueeze(-1)
+        return streams
+
+    def _block_forward_decode(self, block, streams, cos, sin, cache, layer_idx):
+        """Single-token block forward with cached K/V (correctness = full forward)."""
+        # attn stage (token t): compute from cached prefix + this token's read stream
+        h_pre, h_post, raw = block._dyn_raw(streams, "attn")
+        v = torch.einsum("btk,btkd->btd", h_pre, streams)  # (B, 1, d)
+        vn = block.norm_attn(v)  # attention sees norm(v), same as full forward
+        # compute q for this token (B,1,nk,hs), k/v from cache + this token
+        B, T, _ = v.shape
+        nk, hs = block.attn.nh, block.attn.hs
+        pos = cache["seq_len"]
+        q = block.attn.wq(vn).view(B, T, nk, hs).transpose(1, 2)  # (B,nk,1,hs)
+        # RoPE at the actual position (pos): cos[pos:pos+1]
+        q = apply_rope(q, cos[pos:pos + 1], sin[pos:pos + 1])
+        # k/v for this token (rotate k at pos, write rotated k to cache)
+        nkv = block.attn.nkv
+        kk = block.attn.wk(vn).view(B, T, nkv, hs).transpose(1, 2)  # (B,nkv,1,hs)
+        kk_r = apply_rope(kk, cos[pos:pos + 1], sin[pos:pos + 1])
+        vv = block.attn.wv(vn).view(B, T, nkv, hs).transpose(1, 2)  # (B,nkv,1,hs)
+        cache["k"][layer_idx, :, :, pos] = kk_r[:, :, 0]
+        cache["v"][layer_idx, :, :, pos] = vv[:, :, 0]
+        k_cached = cache["k"][layer_idx][:, :, :pos + 1]  # (B,nkv,1,hs) padded
+        v_cached = cache["v"][layer_idx][:, :, :pos + 1]
+        # repeat_kv to n heads (identical semantics to model.repeat_kv: expand+reshape)
+        rep = nk // nkv
+        k_rep = k_cached[:, :, None].expand(-1, -1, rep, -1, -1).reshape(-1, nk, pos + 1, hs)  # (B,nk,pos+1,hs)
+        v_rep = v_cached[:, :, None].expand(-1, -1, rep, -1, -1).reshape(-1, nk, pos + 1, hs)
+        # causal: q (single new token) attends to all cached [0..pos] via SDPA.
+        # is_causal=False: with q_len=1 over the full cached prefix this is the
+        # exact causal step; is_causal=True would mis-handle q_len=1 != kv_len.
+        q = q.to(dtype=k_rep.dtype)
+        y = F.scaled_dot_product_attention(q, k_rep, v_rep, is_causal=False)  # (B,nk,1,hs)
+        y = y.transpose(1, 2).reshape(B, 1, -1)  # (B,1,d)
+        f = block.attn.wo(y)  # (B,1,d)
+        W = _batched_sinkhorn_exp(raw)
+        mixed = torch.einsum("btjk,btkd->btjd", W, streams)
+        streams = mixed + f.unsqueeze(2) * h_post.unsqueeze(-1)
+        # mlp stage (no cache)
+        h_pre, h_post, raw = block._dyn_raw(streams, "mlp")
+        v = torch.einsum("btk,btkd->btd", h_pre, streams)
+        f = block.mlp(block.norm_mlp(v))
+        W = _batched_sinkhorn_exp(raw)
+        mixed = torch.einsum("btjk,btkd->btjd", W, streams)
+        streams = mixed + f.unsqueeze(2) * h_post.unsqueeze(-1)
+        return streams
+
+    def _advance_seq(self, cache):
+        cache["seq_len"] += 1

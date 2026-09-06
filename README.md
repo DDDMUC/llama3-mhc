@@ -27,6 +27,9 @@
   （cl100k_base）BPE 编码（词表 100277）；`train.py` 按 `meta['dtype']`
   自动选择 uint16/uint32。
 - **基准与评估** — `bench.py`（tok/s、MFU）与 `eval.py`（多项选择 ARC 评估）。
+- **KV-cache 推理** — `sample.py --kvcache` 用增量解码加速生成；与朴素 `generate`
+  数学等价（logits 差 ~1e-6，已由 `tests/check_kvcache.py` 门禁验证）。默认用朴素
+  `generate` 以保证逐 token 可复现；`--kvcache` 供推理提速。
 
 ---
 
@@ -181,6 +184,10 @@ reproducible, trainable on a single GPU.
   TinyStories (vocab 100277); `train.py` auto-selects uint16/uint32 by
   `meta['dtype']`.
 - **Benchmark & eval** — `bench.py` (tok/s, MFU) and `eval.py` (multiple-choice ARC).
+- **KV-cache inference** — `sample.py --kvcache` uses incremental decode for faster
+  generation; mathematically equivalent to plain `generate` (logits differ ~1e-6,
+  verified by `tests/check_kvcache.py`). Plain `generate` stays the default for
+  token-level reproducibility; `--kvcache` is the speed path.
 
 ---
 

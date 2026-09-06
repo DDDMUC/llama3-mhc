@@ -24,6 +24,10 @@ p.add_argument("--chat", action="store_true",
                help="REPL mode: type a prompt, get a continuation (empty line exits)")
 p.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
 p.add_argument("--seed", type=int, default=None)
+p.add_argument("--kvcache", action="store_true",
+               help="use the KV-cache generator (faster decode; logits match plain "
+                    "generate to ~1e-6, but sampled tokens may differ from plain due "
+                    "to float-path differences)")
 args = p.parse_args()
 
 torch.manual_seed(args.seed)  # None -> entropy-seeded
@@ -57,7 +61,10 @@ else:  # char-level dataset (shakespeare_char)
 
 def generate(prompt: str) -> str:
     x = torch.tensor([encode(prompt)], dtype=torch.long, device=device)
-    y = model.generate(x, args.max_new_tokens, temperature=args.temperature, top_k=args.top_k)
+    if args.kvcache:
+        y = model.generate_kvcache(x, args.max_new_tokens, temperature=args.temperature, top_k=args.top_k)
+    else:
+        y = model.generate(x, args.max_new_tokens, temperature=args.temperature, top_k=args.top_k)
     return decode(y[0].tolist())
 
 
