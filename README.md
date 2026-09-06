@@ -91,6 +91,19 @@ python train.py --config config/train_tinystories.py
 > **诚实提示**：val loss 约 600 步后回升（train 继续降）——这是 9.9M 模型 vs 1M
 > 字符语料的过拟合，nanoGPT 在同样数据上同样如此；best val 1.5094 就在 600 步附近。
 
+**试试 `--chat`**（完整会话见 `assets/chat_demo.txt`）：
+
+```
+you> What news from the king tonight?
+model> First Citizen: We cannot choose but one that's off, what an eun? ...
+you> And the queen, how fares she?
+model> PETRUCHIO: Sir, shut up my lady; shall stop our subjects' sees, ...
+you> Farewell, kind sir.
+model> KING EDWARD IV: Why, then becomes these native censures him. ...
+```
+
+> 诚实说明：这是字符级模型（vocab 65），`--chat` 实为"莎剧风格续写"，不是真问答——够好玩，但不是聊天机器人。
+
 ---
 
 ## 架构
@@ -285,6 +298,20 @@ Then sample — after 2000 iters the model writes structurally sound Shakespeare
 > **Honest caveat**: val loss rises after ~600 iters (train keeps dropping) —
 > overfitting of a 9.9M model on 1M chars; nanoGPT behaves the same on this
 > data. Best val 1.5094 is near iter 600.
+
+**Try `--chat`** (full session in `assets/chat_demo.txt`):
+
+```
+you> What news from the king tonight?
+model> First Citizen: We cannot choose but one that's off, what an eun? ...
+you> And the queen, how fares she?
+model> PETRUCHIO: Sir, shut up my lady; shall stop our subjects' sees, ...
+you> Farewell, kind sir.
+model> KING EDWARD IV: Why, then becomes these native censures him. ...
+```
+
+> Honest note: this is a character-level model (vocab 65); `--chat` is really
+> "Shakespeare-style continuation", not a real Q&A bot — fun, but not a chatbot.
 
 ---
 

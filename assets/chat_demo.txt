@@ -1,0 +1,31 @@
+you> What news from the king tonight?
+model> What news from the king tonight?
+
+First Citizen:
+We cannot choose but one that's off, what an eun?
+
+CORIOLANUS:
+
+
+you>
+
+you> And the queen, how fares she?
+model> And the queen, how fares she?
+
+PETRUCHIO:
+Sir, shut up my lady; shall stop our subjects' sees,
+But thou art h
+
+you>
+
+you> Farewell, kind sir.
+model> Farewell, kind sir.
+
+KING EDWARD IV:
+Why, then becomes these native censures him.
+
+SLY:
+What, maste
+
+you>
+
