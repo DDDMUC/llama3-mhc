@@ -171,9 +171,14 @@ $$\mathcal{L} = \text{CrossEntropy}(\text{Logits}, \text{targets}), \quad \text{
 
 ---
 
-### 推理（本仓实现：朴素整段重前向，无 KV Cache）
+### 推理（两条路径：朴素整段重前向为默认；KV Cache 为可选加速）
 
-本仓为参考实现，`generate` 采用朴素自回归：每步对整个前缀重算前向（$S_{\text{max}}=256$ 代价可接受），未实现 KV Cache（Meta 工程版缓存 $\mathbf{K}_{\le t}, \mathbf{V}_{\le t}$ 逐层复用；这是工程优化，数学等价，列入 Roadmap）。
+本仓为参考实现，提供两种自回归生成：
+
+* **朴素 `generate`（默认，逐 token 可复现）**：每步对整个前缀重算前向（$S_{\text{max}}=256$ 代价可接受）。
+* **KV Cache `generate_kvcache`（`sample.py --kvcache`，推理提速）**：预填前缀时缓存每层 K/V，之后逐 token 仅算新 token 的层前向。**数学等价**：单步 logits 与朴素前向差 ~1e-6（`tests/check_kvcache.py` 门禁验证，逐 logits diff < 1e-3）；但多步采样/argmax 可能因浮点路径差异（SDPA 对不同长度序列的 kernel 次序不同）而与朴素路径分叉——KV 实现固有现象，故默认用朴素以保证可复现。
+
+**朴素路径逐步过程**（训练同款，Dropout 关闭）：
 
 * 当前已生成序列 $\mathbf{idx} \in \mathbb{N}^{1 \times t'}$（$t' \le S_{\text{max}}$，超长则截取末尾 $S_{\text{max}}$ 个）。
 
@@ -198,6 +203,38 @@ $$P(i_{t'+1}) = \text{Softmax}\left(\frac{\mathbf{z}}{\max(T_{\text{emp}}, 10^{-
 | 激活统计 | 无 Dropout | 3 处 Dropout（默认 0.0） | nanoGPT 训练器惯例，保留开关 |
 | 初始化 | 官方未公开细节 | 全线性层/嵌入 $\mathcal{N}(0, 0.02)$ | nanoGPT 小模型惯例（README 已声明） |
 | QK-norm | 3.1+ 特性 | 无 | 保持 Llama-3.0 忠实（README 已声明） |
-| 推理 | KV Cache + 张量并行 | 朴素重前向，单卡 | 参考实现优先可读性 |
+| 推理 | KV Cache + 张量并行 | 朴素重前向为默认（可复现）；KV Cache 可选（`--kvcache`，数学等价 ~1e-6） | 参考实现优先可读性；KV 门禁验证 |
 | Sinkhorn 反向 | 自定义 autograd Function（只存输入、backward 重算） | 原生 Autograd（2×20 次归一化激活图，约数百 MB 量级） | 当前规模开销可忽略；规模化（长上下文/大 batch/AMP）时换 `torch.compile` 或 TileKernels 式自定义 backward |
 | 残差结构 | 单流残差 | **mHC：$n=4$ 流 + 流形约束混合** | 本仓库的存在意义（arXiv:2512.24880） |
+
+---
+
+## 工程特性与工具（2026-09 新增）
+
+### 混合精度训练（`train.py --dtype`）
+
+* `--dtype {auto,fp32,bf16,fp16}`：auto = CUDA 支持 bf16 时用 bf16，否则 fp16。
+* 前向包 `torch.amp.autocast`；fp16 配 GradScaler（bf16 不需）。
+* 数值安全：RMSNorm 本就 fp32 cast；mHC 的 exp 输入 clamp(max=20) 防溢出——AMP 下实测稳定（smoke 有 bf16 20 步收敛断言，无 NaN）。
+* `--compile`（Linux）可用 `torch.compile` 融合。
+
+### 数据集（char + tiktoken）
+
+* `data/shakespeare_char/`：字符级（vocab 65，uint16）。
+* `data/tinystories/`：tiktoken cl100k_base（vocab 100277）编码 TinyStories，uint32（token id 超 uint16）。`train.py` 按 `meta['dtype']` 自动选 uint16/uint32。
+* **数据不进 git**——`data/<name>/prepare.py` 是生成代码；clone 后跑它即得与 CI 相同的数据（确定性：固定源 + 固定参数）。
+
+### mHC 稳定性可视化（`scripts/plot_mhc_gain.py`）
+
+本地复现 mHC 论文核心稳定性论点（图 `assets/mhc_gain.png`）：
+复合信号增益 vs 深度——baseline（恒等）保持 1.0；HC（无约束矩阵）在深度 64
+爆炸至 ~1e17；mHC（Sinkhorn 双随机）保持 ~1.000。原因：双随机矩阵对乘法封闭，
+复合映射增益有界。可视化思路借鉴 bassrehab/mhc-visualizer（MIT），数学出自
+mHC 论文。
+
+### 基准与评估
+
+* `bench.py`：吞吐（tok/s）/MFU（nanoGPT 风格）。
+* `eval.py`：多项选择（ARC 等）按 next-token NLL 评分；`data/eval/prepare.py`
+  下载数据（数据不进 git）。
+
