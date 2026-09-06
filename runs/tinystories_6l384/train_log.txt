@@ -1,0 +1,12 @@
+[11:06:36] dtype=bf16 (autocast=True, GradScaler=False)
+[11:06:36] start: mixer=sinkhorn topology=dynamic n_streams=4 params=48.41M device=cuda resume_iter=0 max_iters=200 out_dir=runs/tinystories_6l384
+[11:06:49] iter     0: train 11.5835, val 11.5781, lr 4.76e-05, 0k tok/s
+[11:13:32] iter    50: train 6.0060, val 5.8870, lr 9.40e-04, 1k tok/s
+[11:20:24] iter   100: checkpoint saved (8273 ms/iter avg)
+[11:20:48] iter   100: train 5.1740, val 5.0737, lr 6.28e-04, 1k tok/s
+[11:28:29] iter   150: train 4.5240, val 4.4416, lr 2.61e-04, 1k tok/s
+[11:35:57] iter   199: train 4.3726, val 4.2290, lr 1.00e-04, 1k tok/s
+[11:36:08] iter   200: checkpoint saved (8856 ms/iter avg)
+[11:36:29] iter   200: train 4.3318, val 4.2495, lr 1.00e-04, 1k tok/s
+[11:36:33] done: reached max_iters=200, best_val=4.2290, final ckpt saved. total 1796.5s this session
+[11:36:33] mixing report: worst row_err=0.00e+00 over 12 mixers -> mixing_report.json

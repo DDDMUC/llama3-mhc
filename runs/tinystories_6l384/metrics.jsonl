@@ -1,0 +1,6 @@
+{"iter": 0, "train": 11.583488464355469, "val": 11.578142166137695, "lr": 4.761904761904762e-05, "mixer": "sinkhorn", "topology": "dynamic", "elapsed_s": 12.4}
+{"iter": 50, "train": 6.006046772003174, "val": 5.887027740478516, "lr": 0.0009397114317029975, "mixer": "sinkhorn", "topology": "dynamic", "elapsed_s": 415.8}
+{"iter": 100, "train": 5.173959255218506, "val": 5.073692321777344, "lr": 0.0006281416799501188, "mixer": "sinkhorn", "topology": "dynamic", "elapsed_s": 851.3}
+{"iter": 150, "train": 4.523959159851074, "val": 4.441561698913574, "lr": 0.0002607455756410573, "mixer": "sinkhorn", "topology": "dynamic", "elapsed_s": 1312.1}
+{"iter": 199, "train": 4.372649669647217, "val": 4.229005336761475, "lr": 0.00010006853717962393, "mixer": "sinkhorn", "topology": "dynamic", "elapsed_s": 1760.3}
+{"iter": 200, "train": 4.331787109375, "val": 4.249507904052734, "lr": 0.0001, "mixer": "sinkhorn", "topology": "dynamic", "elapsed_s": 1793.0}
