@@ -43,9 +43,16 @@ if not (dataset_dir / "meta.pkl").exists():
         raise FileNotFoundError(f"meta.pkl not found for dataset {dataset_rel}")
 with open(dataset_dir / "meta.pkl", "rb") as f:
     meta = pickle.load(f)
-stoi, itos = meta["stoi"], meta["itos"]
-encode = lambda s: [stoi[c] for c in s if c in stoi] or [stoi["\n"]]
-decode = lambda ids: "".join(itos[i] for i in ids)
+
+if "tokenizer" in meta:  # tiktoken-tokenized dataset (e.g. TinyStories)
+    import tiktoken
+    enc = tiktoken.get_encoding(meta["tokenizer"])
+    encode = enc.encode
+    decode = enc.decode
+else:  # char-level dataset (shakespeare_char)
+    stoi, itos = meta["stoi"], meta["itos"]
+    encode = lambda s: [stoi[c] for c in s if c in stoi] or [stoi["\n"]]
+    decode = lambda ids: "".join(itos[i] for i in ids)
 
 
 def generate(prompt: str) -> str:
