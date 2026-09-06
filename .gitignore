@@ -14,3 +14,4 @@ data/*/input.txt
 data/*/meta.pkl
 data/*/*.parquet
 data/eval/*.json
+data/enwik8/enwik8

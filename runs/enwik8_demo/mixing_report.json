@@ -1,0 +1,74 @@
+[
+  {
+    "block": 0,
+    "stage": "attn",
+    "topology": "dynamic-probe",
+    "row_err": 0.0,
+    "col_err": 0.0,
+    "min_entry": 0.09625513106584549,
+    "signed": false
+  },
+  {
+    "block": 0,
+    "stage": "mlp",
+    "topology": "dynamic-probe",
+    "row_err": 0.0,
+    "col_err": 0.0,
+    "min_entry": 0.0948139950633049,
+    "signed": false
+  },
+  {
+    "block": 1,
+    "stage": "attn",
+    "topology": "dynamic-probe",
+    "row_err": 0.0,
+    "col_err": 0.0,
+    "min_entry": 0.09400429576635361,
+    "signed": false
+  },
+  {
+    "block": 1,
+    "stage": "mlp",
+    "topology": "dynamic-probe",
+    "row_err": 0.0,
+    "col_err": 0.0,
+    "min_entry": 0.09507796168327332,
+    "signed": false
+  },
+  {
+    "block": 2,
+    "stage": "attn",
+    "topology": "dynamic-probe",
+    "row_err": 0.0,
+    "col_err": 0.0,
+    "min_entry": 0.09422801434993744,
+    "signed": false
+  },
+  {
+    "block": 2,
+    "stage": "mlp",
+    "topology": "dynamic-probe",
+    "row_err": 0.0,
+    "col_err": 0.0,
+    "min_entry": 0.09352570027112961,
+    "signed": false
+  },
+  {
+    "block": 3,
+    "stage": "attn",
+    "topology": "dynamic-probe",
+    "row_err": 0.0,
+    "col_err": 0.0,
+    "min_entry": 0.09264577925205231,
+    "signed": false
+  },
+  {
+    "block": 3,
+    "stage": "mlp",
+    "topology": "dynamic-probe",
+    "row_err": 0.0,
+    "col_err": 0.0,
+    "min_entry": 0.09168458729982376,
+    "signed": false
+  }
+]

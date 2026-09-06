@@ -1,0 +1,8 @@
+{"iter": 0, "train": 5.551495552062988, "val": 5.549233436584473, "lr": 3.2258064516129034e-05, "mixer": "sinkhorn", "topology": "dynamic", "elapsed_s": 1.6}
+{"iter": 50, "train": 2.8363537788391113, "val": 2.831470012664795, "lr": 0.0009878701917609206, "mixer": "sinkhorn", "topology": "dynamic", "elapsed_s": 11.6}
+{"iter": 100, "train": 2.3337013721466064, "val": 2.2844836711883545, "lr": 0.0008588087370409302, "mixer": "sinkhorn", "topology": "dynamic", "elapsed_s": 22.5}
+{"iter": 150, "train": 2.0688986778259277, "val": 2.053449869155884, "lr": 0.0006281416799501188, "mixer": "sinkhorn", "topology": "dynamic", "elapsed_s": 36.9}
+{"iter": 200, "train": 1.9422680139541626, "val": 1.9459766149520874, "lr": 0.0003717641052823794, "mixer": "sinkhorn", "topology": "dynamic", "elapsed_s": 55.2}
+{"iter": 250, "train": 1.8446438312530518, "val": 1.8407284021377563, "lr": 0.00017403048486417869, "mixer": "sinkhorn", "topology": "dynamic", "elapsed_s": 70.2}
+{"iter": 299, "train": 1.801361322402954, "val": 1.8061296939849854, "lr": 0.00010003046139830702, "mixer": "sinkhorn", "topology": "dynamic", "elapsed_s": 87.9}
+{"iter": 300, "train": 1.8115932941436768, "val": 1.802779197692871, "lr": 0.0001, "mixer": "sinkhorn", "topology": "dynamic", "elapsed_s": 90.6}

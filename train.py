@@ -185,7 +185,8 @@ def main():
     with open(data_dir / "meta.pkl", "rb") as f:
         meta = pickle.load(f)
     vocab_size = meta["vocab_size"]
-    data_dtype = np.uint32 if meta.get("dtype", "uint16") == "uint32" else np.uint16
+    data_dtype = {"uint8": np.uint8, "uint16": np.uint16, "uint32": np.uint32}.get(
+        meta.get("dtype", "uint16"), np.uint16)
     train_data = np.memmap(data_dir / "train.bin", dtype=data_dtype, mode="r")
     val_data = np.memmap(data_dir / "val.bin", dtype=data_dtype, mode="r")
 

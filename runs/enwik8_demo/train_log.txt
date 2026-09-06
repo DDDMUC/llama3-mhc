@@ -1,0 +1,15 @@
+[17:29:15] dtype=bf16 (autocast=True, GradScaler=False)
+[17:29:15] start: mixer=sinkhorn topology=dynamic n_streams=4 params=3.22M device=cuda resume_iter=0 max_iters=300 out_dir=runs/enwik8_demo
+[17:29:17] iter     0: train 5.5515, val 5.5492, lr 3.23e-05, 0k tok/s
+[17:29:27] iter    50: train 2.8364, val 2.8315, lr 9.88e-04, 35k tok/s
+[17:29:37] iter   100: checkpoint saved (215 ms/iter avg)
+[17:29:38] iter   100: train 2.3337, val 2.2845, lr 8.59e-04, 36k tok/s
+[17:29:52] iter   150: train 2.0689, val 2.0534, lr 6.28e-04, 33k tok/s
+[17:30:09] iter   200: checkpoint saved (269 ms/iter avg)
+[17:30:11] iter   200: train 1.9423, val 1.9460, lr 3.72e-04, 30k tok/s
+[17:30:26] iter   250: train 1.8446, val 1.8407, lr 1.74e-04, 29k tok/s
+[17:30:43] iter   299: train 1.8014, val 1.8061, lr 1.00e-04, 28k tok/s
+[17:30:44] iter   300: checkpoint saved (296 ms/iter avg)
+[17:30:46] iter   300: train 1.8116, val 1.8028, lr 1.00e-04, 27k tok/s
+[17:30:47] done: reached max_iters=300, best_val=1.8028, final ckpt saved. total 91.2s this session
+[17:30:47] mixing report: worst row_err=0.00e+00 over 8 mixers -> mixing_report.json
