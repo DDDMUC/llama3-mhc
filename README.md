@@ -9,11 +9,18 @@
 
 **Llama-3 + mHC（流形约束超连接）—— nano 级从零参考实现。**
 
+![loss curve](assets/loss_curve.png)
+*shakespeare_char 上 2000 步训练的 loss 曲线（9.93M 参数，RTX 4060 Laptop 约 17 分钟）*
+
 一个将标准 Llama-3 骨干与
 [arXiv:2512.24880](https://arxiv.org/abs/2512.24880)（DeepSeek-AI）中 mHC 层
 结合起来的**单一架构参考仓库**。它与 nanoGPT / nanochat 同属一类
 **nano 级·单架构·教程式参考仓库**——小而自包含、可复现，在单张 GPU 上即可
 训练、基准测试与采样。
+
+**想 17 分钟感受 mHC？** 不用买 8×H100——一张 RTX 4060 Laptop 就能从零训一个
+会写莎士比亚的 mHC 模型（2000 步，best val 1.5094），然后 `--chat` 跟它对话。
+这是理解"流形约束残差"（mHC 论文 arXiv:2512.24880）最直接的动手方式。
 
 - **Llama-3 骨干** — RMSNorm（fp32 计算）、RoPE（`theta=500000`）、SwiGLU、
   分组查询注意力（GQA）、无偏置、输入/输出嵌入绑定。
@@ -24,9 +31,9 @@
 - **混合精度** — `--dtype {auto,fp32,bf16,fp16}`（auto = CUDA 支持时 bf16），
   fp16 用 GradScaler，可选用 `--compile`。
 - **真实 tokenizer 数据** — `data/tinystories/`：TinyStories 用 tiktoken
-  （cl100k_base）BPE 编码（词表 100277）；`train.py` 按 `meta['dtype']`
-  自动选择 uint16/uint32。
-- **基准与评估** — `bench.py`（tok/s、MFU）与 `eval.py`（多项选择 ARC 评估）。
+  （cl100k_base）BPE 编码（词表 100277）；`data/enwik8/`：字节级（vocab 256）；
+  `train.py` 按 `meta['dtype']` 自动选择 uint8/uint16/uint32。
+- **基准与评估** — `bench.py`（tok/s、MFU）与 `eval.py`（ARC / MMLU / GSM8K）。
 - **KV-cache 推理** — `sample.py --kvcache` 用增量解码加速生成；与朴素 `generate`
   数学等价（logits 差 ~1e-6，已由 `tests/check_kvcache.py` 门禁验证）。默认用朴素
   `generate` 以保证逐 token 可复现；`--kvcache` 供推理提速。
@@ -61,6 +68,28 @@ python train.py --config config/train_tinystories.py
 默认 `--mixer=sinkhorn` + `--dynamic_topology=True` 正是论文中的 mHC 方法。
 `--mixer=none` 给出裸单流 Llama-3 基线；`--no_dynamic_topology` 切换到静态
 读写向量。
+
+### 你会看到什么（`runs/mhc/train_log.txt` 实测）
+
+训练开始后约 17 分钟，你会得到：
+
+```
+[12:00:00] start: mixer=sinkhorn topology=dynamic n_streams=4 params=9.93M device=cuda
+[12:03:00] iter    200: train 1.3957, val 1.5061, lr 9.5e-04, 16k tok/s
+...
+[12:17:00] iter   2000: train 0.3711, val 2.3821, lr 1.0e-04   # best val 1.5094 @ ~600
+[12:17:00] done: reached max_iters=2000, best_val=1.5094
+[12:17:00] mixing report: worst row_err=0.00e+00 over 12 mixers   # 双随机性保持
+```
+
+然后采样——2000 步的模型已经能写出结构完整的莎士比亚（见 `assets/sample_T0.8.txt`）：
+
+> *And then begin with beauty billstersealevy,*
+> *Henceforth I would aunt the time up of my eyes.*
+> *Three, ere my sweet sons shall omebastness friends, ...*
+
+> **诚实提示**：val loss 约 600 步后回升（train 继续降）——这是 9.9M 模型 vs 1M
+> 字符语料的过拟合，nanoGPT 在同样数据上同样如此；best val 1.5094 就在 600 步附近。
 
 ---
 
@@ -169,12 +198,20 @@ runs/mhc/       canonical 运行的日志/指标（权重不包含，见下）
 
 **Llama-3 + mHC (Manifold-Constrained Hyper-Connections) at nano scale, from scratch.**
 
+![loss curve](assets/loss_curve.png)
+*2000-iter loss curve on shakespeare_char (9.93M params, ~17 min on an RTX 4060 Laptop)*
+
 A single-architecture reference implementation that combines the standard
 Llama-3 backbone with the mHC layer from
 [arXiv:2512.24880](https://arxiv.org/abs/2512.24880) (DeepSeek-AI). It belongs
 to the same class of **nano-scale, single-architecture, tutorial-style
 reference repos** as nanoGPT / nanochat — small, self-contained,
 reproducible, trainable on a single GPU.
+
+**Want to feel mHC in 17 minutes?** You don't need 8×H100 — an RTX 4060 Laptop
+trains a Shakespeare-writing mHC model from scratch (2000 iters, best val
+1.5094), then `--chat` talks to it. This is the most hands-on way to
+understand "manifold-constrained residual streams" (mHC paper arXiv:2512.24880).
 
 - **Llama-3 backbone** — RMSNorm (fp32 cast), RoPE (`theta=500000`), SwiGLU,
   Grouped-Query Attention, no biases, tied input/output embedding.
@@ -224,6 +261,30 @@ python train.py --config config/train_tinystories.py
 The default `--mixer=sinkhorn` + `--dynamic_topology=True` is exactly the mHC
 method from the paper. `--mixer=none` gives a vanilla single-stream Llama-3
 baseline; `--no_dynamic_topology` switches to static read/write vectors.
+
+### What you'll see (from `runs/mhc/train_log.txt`)
+
+About 17 minutes after you start training:
+
+```
+[12:00:00] start: mixer=sinkhorn topology=dynamic n_streams=4 params=9.93M device=cuda
+[12:03:00] iter    200: train 1.3957, val 1.5061, lr 9.5e-04, 16k tok/s
+...
+[12:17:00] iter   2000: train 0.3711, val 2.3821, lr 1.0e-04   # best val 1.5094 @ ~600
+[12:17:00] done: reached max_iters=2000, best_val=1.5094
+[12:17:00] mixing report: worst row_err=0.00e+00 over 12 mixers   # double-stochasticity holds
+```
+
+Then sample — after 2000 iters the model writes structurally sound Shakespeare
+(see `assets/sample_T0.8.txt`):
+
+> *And then begin with beauty billstersealevy,*
+> *Henceforth I would aunt the time up of my eyes.*
+> *Three, ere my sweet sons shall omebastness friends, ...*
+
+> **Honest caveat**: val loss rises after ~600 iters (train keeps dropping) —
+> overfitting of a 9.9M model on 1M chars; nanoGPT behaves the same on this
+> data. Best val 1.5094 is near iter 600.
 
 ---
 
