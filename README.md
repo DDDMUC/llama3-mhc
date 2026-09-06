@@ -108,6 +108,11 @@ TinyStories 基础模型在 ARC-Easy（50 例子集）上得 **0.280 (14/50)**�
 Loss 曲线：`assets/loss_curve.png`（由 `scripts/plot_loss.py` 从
 `runs/mhc/metrics.jsonl` 生成）。
 
+**mHC 稳定性论证** — `scripts/plot_mhc_gain.py` 本地复现 mHC 论文的核心论点
+（可视化思路借鉴 [bassrehab/mhc-visualizer](https://github.com/bassrehab/mhc-visualizer),
+MIT）：复合信号增益 vs 深度 —— baseline（恒等）1.0、HC（无约束矩阵）在深度 64
+爆炸至 ~1e17、mHC（Sinkhorn 双随机）保持 ~1.0。输出 `assets/mhc_gain.png`。
+
 ## 仓库结构
 
 ```
@@ -273,6 +278,13 @@ claim.
 
 Loss curve: `assets/loss_curve.png` (rendered from `runs/mhc/metrics.jsonl`
 by `scripts/plot_loss.py`).
+
+**mHC stability argument** — `scripts/plot_mhc_gain.py` reproduces the mHC
+paper's core argument locally (visualization idea after
+[bassrehab/mhc-visualizer](https://github.com/bassrehab/mhc-visualizer), MIT):
+composite signal gain vs depth — baseline (identity) 1.0, HC (unconstrained
+matrices) explodes to ~1e17 at depth 64, mHC (Sinkhorn doubly stochastic)
+stays ~1.0. Output: `assets/mhc_gain.png`.
 
 ## Repo layout
 
